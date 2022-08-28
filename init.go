@@ -51,6 +51,9 @@ func NewIcannAPIClient() *IcannClient {
 	// be a fatal error here.
 	icn.CzdsAPI.ICANN().Authenticate()
 
+	// send the results to the screen, in case the console
+	// is being watched; this line will be replaced shortly
+	// after it's displayed.
 	ConsoleClearLastLine()
 	fmt.Println("Authenticated:", icn.CzdsAPI.ICANN().Authenticated)
 
@@ -58,6 +61,10 @@ func NewIcannAPIClient() *IcannClient {
 
 	return &icn
 }
+
+// fireAPIRun starts ICANN() with a two-minute delay
+// so that there is no wait-time on the first run; hence
+// no unnecessary delay after the first (successfull) authentication.
 func fireAPIRun(icn *IcannClient) {
 	tick := time.Tick(time.Second)
 	for i := 121; i >= 1; i-- {

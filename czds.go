@@ -18,7 +18,7 @@ type CzdsAPI struct {
 
 // ICzdsAPI is the interface for CzdsAPI.
 type ICzdsAPI interface {
-	DownloadZoneFile(localFilePath string, urlx string, wg *sync.WaitGroup) error
+	DownloadZoneFile(localFilePath string, downloadLink string, wg *sync.WaitGroup) error
 	ICANN() *IcannAPI
 	Run()
 }
@@ -50,7 +50,7 @@ lblAgain:
 	goto lblAgain
 }
 
-// ICANN exposes the ICannAPI to outside callers (public).
+// ICANN exposes the IcannAPI to outside callers (public).
 func (c *CzdsAPI) ICANN() *IcannAPI {
 	return c.icann
 }
@@ -73,7 +73,7 @@ func (c *CzdsAPI) waitUntilAutenticated() {
 // getZoneFileStatus gets the status of the zone-file via
 // an http call with a HEAD method. The Content-Disposition
 // header will display the original filename and the Content-Length
-// will show the size of the file. The following are exmaples of the
+// will show the size of the file. The following is exmaples of the
 // headers:
 //   Content-Disposition:[attachment;filename=com.txt.gz]
 //   Content-Language:[en] Content-Length:[4979876869]
@@ -115,7 +115,7 @@ func (c *CzdsAPI) getZoneFileStatus(urlx string) ZoneFileStatus {
 }
 
 // getDownloadLinks makes an http call to the czdsAPIDownloadLinksURL
-// url and receives the downloads for authrorized zone files.
+// and receives the downloads for authrorized zone files.
 func (c *CzdsAPI) getDownloadLinks() []string {
 
 	var dlinks []string
@@ -156,8 +156,8 @@ func (c *CzdsAPI) getDownloadLocalFilePath(link string) string {
 
 func (c *CzdsAPI) keepIdlUntilNextInternval() {
 	// Need to wait for 48 hours to download a file again.
-	// According to ICANN terms caller must wait at least 24 hours between
-	// downloads...
+	// According to ICANN terms caller must wait for at least
+	// 24 hours between downloads...
 	hrsToWait := 48
 	nextTime := time.Now().Add(time.Duration(hrsToWait) * time.Hour)
 	tCounter := hrsToWait * 60 * 60 // seconds

@@ -75,8 +75,8 @@ func (i *IcannAPI) GetCommonHeaders() http.Header {
 	return hd
 }
 
-// accessTokenExpired returns true if the issue date of
-// the accesst token a less than 24 hours.
+// accessTokenExpired returns true, if the issue-date of
+// the access token a less than 24 hours.
 func (i *IcannAPI) accessTokenExpired() bool {
 
 	// check for empty time
