@@ -122,7 +122,7 @@ func setEnv() configData {
 	if os.Getenv("ICANN_ROOT_PATH") != "" {
 		cnf.ZoneFileDir = fmt.Sprintf("%s/appdata/zone-files", os.Getenv("ICANN_ROOT_PATH"))
 	} else {
-		// default is location for downloaded zone files is:
+		// default location for downloaded zone files is:
 		// <install-path>/appdata/zone-files/<all downloaded *.gz files will reside here>
 		cnf.ZoneFileDir = fmt.Sprintf("%s/appdata/zone-files", installPath)
 	}

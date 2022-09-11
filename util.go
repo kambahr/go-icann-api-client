@@ -318,6 +318,17 @@ func getFreeDiskSpace() float64 {
 	return freedksp
 }
 
+// itemExists is used to check for duplicates. It returns true
+// if the element already exists in the array.
+func itemExists(arry []interface{}, item interface{}) bool {
+	for i := 0; i < len(arry); i++ {
+		if arry[i] == item {
+			return true
+		}
+	}
+	return false
+}
+
 // roundNumber rounds a number to a target decimail point.
 func roundNumber(n float64, percision uint32) float64 {
 	return math.Round(n*math.Pow(10, float64(percision))) / math.Pow(10, float64(percision))

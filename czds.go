@@ -35,15 +35,32 @@ lblAgain:
 		log.Fatal("unable to get download-links")
 	}
 
-	for i := 0; i < len(dlinks); i++ {
+	var tldUnq []interface{}
+
+	// go through the loop from the bottom so that the latest
+	// gets downloaded first.
+	for i := (len(dlinks) - 1); i >= 0; i-- {
 		link := dlinks[i]
 		localFilePath := c.getDownloadLocalFilePath(link)
+
+		// Alway get the latest (one download for each tld)
+		v := strings.Split(link, "/")
+		oneTLD := v[len(v)-1]
+
+		alreadyDowloaded := itemExists(tldUnq, oneTLD)
+
+		if alreadyDowloaded {
+			continue
+		}
+		tldUnq = append(tldUnq, oneTLD)
 
 		// wait for each download to finish
 		// (one file at a time per ip addr; as it's not a good idea
 		// to download files simultaneousely from the same ip addr!).
 		c.DownloadZoneFile(localFilePath, link, nil)
 	}
+
+	time.Sleep(61 * time.Minute)
 
 	c.keepIdlUntilNextInternval()
 
@@ -158,10 +175,12 @@ func (c *CzdsAPI) keepIdlUntilNextInternval() {
 	// Need to wait for 48 hours to download a file again.
 	// According to ICANN terms caller must wait for at least
 	// 24 hours between downloads...
-	hrsToWait := 48
+	hrsToWait := 47
 	nextTime := time.Now().Add(time.Duration(hrsToWait) * time.Hour)
 	tCounter := hrsToWait * 60 * 60 // seconds
+
 	fmt.Println("")
+
 	for {
 		if tCounter < 1 {
 			break
