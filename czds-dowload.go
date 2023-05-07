@@ -71,8 +71,8 @@ func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg
 				break
 			} else {
 				fmt.Println("")
-				fmt.Printf("\rnot enough disk-space, please, free some disk-space to continue")
-				time.Sleep(15 * time.Second)
+				log.Printf("\rnot enough disk-space, please, free some disk-space to continue")
+				time.Sleep(time.Minute)
 			}
 		}
 	}

@@ -270,21 +270,17 @@ func FileOrDirExists(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-// getFreeDiskSpace reads the output of df --output=source,used,avail
+// getFreeDiskSpace reads the output of df -h /
 // and returned the free disk-space on the system in GB (linux only).
 func getFreeDiskSpace() float64 {
 
 	var freedksp float64
 
-	lsCmd := exec.Command("bash", "-c", " df --output=source,used,avail")
+	lsCmd := exec.Command("bash", "-c", " df -h /")
 	lsOut, _ := lsCmd.Output()
 	values := strings.Split(string(lsOut), "\n")
 
-	exitLoop := false
 	for i := 1; i < len(values); i++ {
-		if exitLoop {
-			break
-		}
 		oneLine := values[i]
 
 		v := strings.Split(oneLine, " ")
@@ -296,23 +292,17 @@ func getFreeDiskSpace() float64 {
 			continue
 		}
 
-		for j := 0; j < len(v); j++ {
-			if v[j] == "" {
-				continue
-			}
-
-			used := strings.Trim(v[1], " ")
-			if used == "" {
-				continue
-			}
-			avail := strings.Trim(v[2], " ")
-
-			freedksp, _ = strconv.ParseFloat(avail, 64)
-			freedksp = freedksp / 1024 / 1024 // GB
-
-			exitLoop = true
-			break
+		for i := 0; i < 5; i++ {
+			oneLine = strings.ReplaceAll(oneLine, "  ", " ")
 		}
+		v = strings.Split(oneLine, " ")
+		avail := v[3]
+		avail = avail[:len(avail)-1]
+		freedksp, _ = strconv.ParseFloat(avail, 64)
+		if v[3][len(v[3])-1:] == "T" {
+			freedksp = freedksp * 1024
+		}
+		break
 	}
 
 	return freedksp
