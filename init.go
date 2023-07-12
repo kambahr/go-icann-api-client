@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,18 +31,15 @@ func NewIcannAPIClient() *IcannClient {
 
 	// Initialize the IcannAPI interface
 	icn.IcannAPI = &IcannAPI{cnf.ZoneFileDir, cnf.UserAgent,
-		cnf.IcannAccountUserName, cnf.IcannAccountPassword, cnf.ApprovedTLD, authenticated, authToken, false}
+		cnf.IcannAccountUserName, cnf.IcannAccountPassword, cnf.ApprovedTLD,
+		authenticated, authToken, false, cnf.HoursToWaitBetweenDownloads}
 
 	// CzdsAPI expands the IcannAPI interface with more functionaliy; so its IcannAPI instance
 	// must be initialized accordingly.
 	icn.CzdsAPI = &CzdsAPI{
 		&IcannAPI{cnf.ZoneFileDir, cnf.UserAgent,
-			cnf.IcannAccountUserName, cnf.IcannAccountPassword, cnf.ApprovedTLD, authenticated, authToken, false},
-	}
-
-	os := runtime.GOOS
-	if os == "linux" {
-		mIsLindex = true
+			cnf.IcannAccountUserName, cnf.IcannAccountPassword, cnf.ApprovedTLD,
+			authenticated, authToken, false, cnf.HoursToWaitBetweenDownloads},
 	}
 
 	// Authenticate on the first run; after that --
@@ -86,16 +83,23 @@ func setEnv() configData {
 
 	// All required args are initialized from environment variables.
 	// So, if there is no icann.env file; then the following variables
-	// must have been se on the machine or user-profile level:
+	// must have been set on the machine or user-profile level:
 	//
 	//   SALT_PHRASE
 	//   ICANN_ACCOUNT_USERNAME
 	//   ICANN_ACCOUNT_PASSWORD
 	//   USER_AGENT
 	//   APPROVED_TLDS
+	//   HOURS_TO_WAIT_BETWEEN_DOWNLOADS
 
 	cnf.IcannAccountUserName = os.Getenv("ICANN_ACCOUNT_USERNAME")
 	cnf.IcannAccountPassword = os.Getenv("ICANN_ACCOUNT_PASSWORD")
+
+	cnf.HoursToWaitBetweenDownloads, _ = strconv.Atoi(os.Getenv("HOURS_TO_WAIT_BETWEEN_DOWNLOADS"))
+
+	if cnf.HoursToWaitBetweenDownloads < 24 {
+		cnf.HoursToWaitBetweenDownloads = 24
+	}
 
 	if cnf.IcannAccountPassword == "" || cnf.IcannAccountUserName == "" {
 		// stop the show; without username/password, there will be no API calls.

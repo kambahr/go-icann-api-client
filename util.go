@@ -152,7 +152,7 @@ func SetEnvFromFile(envFile string) error {
 	saltValue := ""
 
 	for i := 0; i < len(lines); i++ {
-		lines[i] = strings.Trim(lines[i], " ")
+		lines[i] = strings.TrimSpace(lines[i])
 		if lines[i] == "" || strings.HasPrefix(lines[i], "#") {
 			continue
 		}
@@ -160,8 +160,8 @@ func SetEnvFromFile(envFile string) error {
 		if pos < 0 {
 			continue
 		}
-		key := lines[i][:pos]
-		value := lines[i][pos+1:]
+		key := strings.TrimSpace(lines[i][:pos])
+		value := strings.TrimSpace(lines[i][pos+1:])
 		if key == "SALT_PHRASE" {
 			bx, err := hex.DecodeString(value)
 			if err != nil {
@@ -175,13 +175,14 @@ func SetEnvFromFile(envFile string) error {
 			os.Setenv(key, string(bValue))
 		} else {
 			bx, err := hex.DecodeString(value)
-			if err != nil {
+			if err != nil || len(value) < 13 {
 				// as-is not encrypted
 				os.Setenv(key, value)
 				continue
 			}
 			bValue, _ := DecryptLight(bx, saltValue)
-			os.Setenv(key, string(bValue))
+			strValue := string(bValue)
+			os.Setenv(key, strValue)
 		}
 	}
 
@@ -225,8 +226,8 @@ func DecryptLight(data []byte, passphrase string) ([]byte, error) {
 		return nil, err
 	}
 	nonceSize := gcm.NonceSize()
-	if nonceSize < 1 {
-		return plaintext, nil
+	if nonceSize < 1 || len(data) < nonceSize {
+		return data, nil
 	}
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
 	plaintext, err = gcm.Open(nil, nonce, ciphertext, nil)

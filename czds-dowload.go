@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"sync"
 	"time"
 
@@ -62,7 +63,7 @@ func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg
 	// downloading the file. In case there is not
 	// enough, keep waiting
 	fs := c.getZoneFileStatus(downloadLink)
-	if mIsLindex {
+	if runtime.GOOS == linux {
 		fileSizeGig := float64(fs.FileLength) / 1024.0 / 1024.0 / 1024.0
 		allowedGB := getMaxFreeDiskForZoneFile()
 		for {

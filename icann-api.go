@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -130,7 +130,7 @@ func (i *IcannAPI) Authenticate() {
 	return
 }
 
-// HTTPExec is wrappter to make http calls.
+// HTTPExec is wrapper to make http calls.
 func (i *IcannAPI) HTTPExec(method string, urlx string, hd http.Header, data []byte) HTTPResult {
 
 	var res HTTPResult
@@ -145,7 +145,7 @@ func (i *IcannAPI) HTTPExec(method string, urlx string, hd http.Header, data []b
 		res.Error = err
 		return res
 	}
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	req.Body.Close()
 	resp.Body.Close()
 	client.CloseIdleConnections()

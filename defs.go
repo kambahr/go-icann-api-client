@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-var mIsLindex bool
 var mLastAuthenticationAttempt time.Time
 
 const (
@@ -15,6 +14,7 @@ const (
 	HEAD = "HEAD"
 	POST = "POST"
 
+	linux                   = "linux"
 	czdsAPIBasedURL         = "https://czds-api.icann.org"
 	czdsAPIDownloadLinksURL = "https://czds-api.icann.org/czds/downloads/links"
 	authenticateBaseURL     = "https://account-api.icann.org/api/authenticate"
@@ -23,12 +23,13 @@ const (
 // configData is used to initialize variables
 // from environment file.
 type configData struct {
-	AppDataDir           string
-	UserAgent            string
-	IcannAccountUserName string
-	IcannAccountPassword string
-	ApprovedTLD          []string
-	ZoneFileDir          string
+	AppDataDir                  string
+	UserAgent                   string
+	IcannAccountUserName        string
+	IcannAccountPassword        string
+	ApprovedTLD                 []string
+	ZoneFileDir                 string
+	HoursToWaitBetweenDownloads int
 }
 
 // IcannAPI defines the structure of hte IIcannAPI interface.
@@ -59,6 +60,8 @@ type IcannAPI struct {
 	// isDirty is used to mark the first-time use of the app; so that
 	// the 120 second wait is skipped when this app is first launched.
 	isDirty bool
+
+	HoursToWaitBetweenDownloads int
 }
 
 type JWT struct {

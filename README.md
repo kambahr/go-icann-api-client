@@ -14,8 +14,6 @@ expired token.
 According to ICANN terms, each tld must be downloaded no more than once in 24 hours. Considering the large amount of information to process + the time it takes to prepare the results for a purpose (i.e. indexing), 48 hours is deemed to 
 be the minimum time between downloads. 
 
-TODO: the 48-hr internval is currently hard-coded, but it can be read, as an option, from a config setting. 
-
 ## Security
 ### Required args
 The following variables must be set via the environment variables:
@@ -25,8 +23,9 @@ The following variables must be set via the environment variables:
   ICANN_ACCOUNT_PASSWORD........ ICANN account password<br>
   USER_AGENT...................................... user-agent in format: &lt;product name&gt; / &lt;version&gt; &lt;comment&gt;<br>
   APPROVED_TLDS............................... approved tld names, separated by comma (e.g. com,net)<br>
+  HOURS_TO_WAIT_BETWEEN_DOWNLOADS............. hours to wait to download the same type of file (default is 24)<br>
 
-Please, note that SALT_PHRASE is not required; if blank an empty satl-phrase will be used.
+Please, note that SALT_PHRASE is not required; if blank, an empty salt-phrase will be used.
 
 ### Essential args using the icann.env file
 If the icann.env file exists in the install-directory, it will be used to read required args into
