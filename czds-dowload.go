@@ -96,8 +96,7 @@ func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg
 		return err
 	}
 
-	// Get the data (no timeout; the zone files are large)
-	client := &http.Client{}
+	client := &http.Client{Timeout: 5 * time.Hour}
 	req, _ := http.NewRequest(http.MethodGet, downloadLink, nil)
 	req.Header = headers
 	resp, err := client.Do(req)

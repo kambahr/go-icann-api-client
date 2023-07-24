@@ -14,10 +14,11 @@ const (
 	HEAD = "HEAD"
 	POST = "POST"
 
-	linux                   = "linux"
-	czdsAPIBasedURL         = "https://czds-api.icann.org"
-	czdsAPIDownloadLinksURL = "https://czds-api.icann.org/czds/downloads/links"
-	authenticateBaseURL     = "https://account-api.icann.org/api/authenticate"
+	tokenFileName           string = "token.dat"
+	linux                   string = "linux"
+	czdsAPIBasedURL         string = "https://czds-api.icann.org"
+	czdsAPIDownloadLinksURL string = "https://czds-api.icann.org/czds/downloads/links"
+	authenticateBaseURL     string = "https://account-api.icann.org/api/authenticate"
 )
 
 // configData is used to initialize variables

@@ -35,15 +35,30 @@ lblAgain:
 		log.Fatal("unable to get download-links")
 	}
 
+	// tldUnq is an array to keep track items already downloaded
 	var tldUnq []interface{}
 
 	// go through the loop from the bottom so that the latest
 	// gets downloaded first.
 	for i := (len(dlinks) - 1); i >= 0; i-- {
+
+		// still check for authentication; becuase if the token
+		// expires in the middle of download, icann api will terminate
+		// the connection!
+		if !c.icann.Authenticated {
+			log.Println("waiting for authentication...")
+			for {
+				if c.icann.Authenticated {
+					break
+				}
+				time.Sleep(time.Second)
+			}
+		}
+
 		link := dlinks[i]
 		localFilePath := c.getDownloadLocalFilePath(link)
 
-		// Alway get the latest (one download for each tld)
+		// Always get the latest (one download for each tld)
 		v := strings.Split(link, "/")
 		oneTLD := v[len(v)-1]
 
@@ -57,7 +72,12 @@ lblAgain:
 		// wait for each download to finish
 		// (one file at a time per ip addr; as it's not a good idea
 		// to download files simultaneousely from the same ip addr!).
-		c.DownloadZoneFile(localFilePath, link, nil)
+		err := c.DownloadZoneFile(localFilePath, link, nil)
+		if err != nil {
+			fmt.Println("c.DownloadZoneFile()=>", oneTLD, err)
+			time.Sleep(time.Minute)
+		}
+
 	}
 
 	c.keepIdlUntilNextInternval()
@@ -77,7 +97,7 @@ func (c *CzdsAPI) waitUntilAutenticated() {
 		authOK := c.icann.Authenticated
 
 		if !authOK {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(time.Second)
 
 		} else {
 			break
@@ -106,7 +126,8 @@ func (c *CzdsAPI) getZoneFileStatus(urlx string) ZoneFileStatus {
 
 	res := c.icann.HTTPExec(HEAD, urlx, hd, nil)
 	if res.StatusCode != 200 {
-		log.Fatalf("\nerror %d - %v", res.StatusCode, string(res.ResponseBody))
+		msg := fmt.Sprintf("error %d - %v", res.StatusCode, string(res.ResponseBody))
+		log.Fatal("getZoneFileStatus()=>", urlx, msg)
 	}
 
 	sizeStr := fmt.Sprintf("%v", res.ResponseHeaders["Content-Length"])
@@ -140,7 +161,8 @@ func (c *CzdsAPI) getDownloadLinks() []string {
 
 	res := c.icann.HTTPExec(GET, czdsAPIDownloadLinksURL, hd, nil)
 	if res.StatusCode != 200 {
-		log.Fatalf("\nerror %d - %v", res.StatusCode, string(res.ResponseBody))
+		msg := fmt.Sprintf("error %d - %v", res.StatusCode, string(res.ResponseBody))
+		log.Fatal("getDownloadLinks()=>", msg)
 	}
 
 	json.Unmarshal(res.ResponseBody, &dlinks)
@@ -170,10 +192,10 @@ func (c *CzdsAPI) getDownloadLocalFilePath(link string) string {
 	return localFilePath
 }
 
+// keepIdlUntilNextInternval waits for >24 hours to download a file again.
+// According to ICANN terms callers must wait for at least
+// 24 hours between downloads...
 func (c *CzdsAPI) keepIdlUntilNextInternval() {
-	// Need to wait for >24 hours to download a file again.
-	// According to ICANN terms caller must wait for at least
-	// 24 hours between downloads...
 	nextTime := time.Now().Add(time.Duration(c.icann.HoursToWaitBetweenDownloads) * time.Hour)
 	tCounter := c.icann.HoursToWaitBetweenDownloads * 60 * 60 // seconds
 

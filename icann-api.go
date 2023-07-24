@@ -3,11 +3,13 @@ package icannclient
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -21,21 +23,25 @@ type IIcannAPI interface {
 
 	accessTokenExpired() bool
 	waitForAuthAttemptTimeout()
+	writeAccessTokenToDisk()
+	getAccessTokenFromDisk()
 }
 
-// Run renews the access token every 24 hours
+// Run renews the access token every 23 hours
 func (i *IcannAPI) Run() {
 
 	for {
-		actExp := i.accessTokenExpired()
+		acceessTokenExpired := i.accessTokenExpired()
 
-		if actExp {
+		if acceessTokenExpired {
 			i.Authenticated = false
 			i.Authenticate()
 		}
 
 		if i.isDirty {
-			time.Sleep(120 * time.Second)
+			// wait just over two minutes
+			time.Sleep(126 * time.Second)
+
 		} else {
 			i.isDirty = true
 		}
@@ -43,26 +49,17 @@ func (i *IcannAPI) Run() {
 }
 
 // waitForAuthAttemptTimeout halts the system until
-// it is approiate to make another auth attmept. The limit is
-// 8 attmept in 5 minutes per IP address.
+// it reaches an appropiate time to make another auth attmept.
+// The limit is 8 attmept in 5 minutes per IP address.
 func (i *IcannAPI) waitForAuthAttemptTimeout() {
+
 	if mLastAuthenticationAttempt.Year() == 1 {
+		// first time since the app has started
 		return
 	}
 
-	d := time.Since(mLastAuthenticationAttempt)
-	minutes := int(d.Minutes())
-
-	secToSleep := 120 - (minutes * 60)
-
-	if secToSleep < 1 {
-		return
-	}
-
-	// wait for auth attmept timeout
-	for i := 0; i < secToSleep; i++ {
-		time.Sleep(time.Second)
-	}
+	// it's safer to wait the whole 2 minutes
+	time.Sleep(2 * time.Minute)
 }
 
 // GetCommonHeaders gets the headers required by icann api.
@@ -79,12 +76,44 @@ func (i *IcannAPI) GetCommonHeaders() http.Header {
 // the access token a less than 24 hours.
 func (i *IcannAPI) accessTokenExpired() bool {
 
+	if i.AccessToken.Token == "" || i.AccessToken.DateTimeIssued.Year() < 2000 {
+		i.getAccessTokenFromDisk()
+	}
+
 	// check for empty time
 	if i.AccessToken.DateTimeIssued.Year() < time.Now().Year() {
 		return true
 	}
 
-	return i.AccessToken.DateTimeIssued.Add(24 * time.Hour).Before(time.Now())
+	return i.AccessToken.DateTimeIssued.Add(23 * time.Hour).Before(time.Now())
+}
+
+// writeAccessTokenToDisk transforms i.AccessToken into hex
+// and saves it to disk (tokenFileName in i.AppDataDir directory).
+func (i *IcannAPI) writeAccessTokenToDisk() {
+
+	if !FileOrDirExists(i.AppDataDir) {
+		log.Fatal("unable to access appdata path")
+		return
+	}
+
+	tokenFilePath := fmt.Sprintf("%s/%s", i.AppDataDir, tokenFileName)
+	b, _ := json.Marshal(i.AccessToken)
+	b = []byte(hex.EncodeToString(b))
+	os.WriteFile(tokenFilePath, b, os.ModePerm)
+}
+
+// getAccessTokenFromDisk reads the tokenFileName from i.AppDataDir
+// (if exists) and transforms its content into i.AccessToken.
+func (i *IcannAPI) getAccessTokenFromDisk() {
+
+	tokenFilePath := fmt.Sprintf("%s/%s", i.AppDataDir, tokenFileName)
+	if !FileOrDirExists(tokenFilePath) {
+		return
+	}
+	b, _ := os.ReadFile(tokenFilePath)
+	b, _ = hex.DecodeString(string(b))
+	json.Unmarshal(b, &i.AccessToken)
 }
 
 // Authenticate calls the authenticate and retreives an
@@ -110,27 +139,52 @@ func (i *IcannAPI) Authenticate() {
 		// not much can be done until ~2 minutes has elapsed,
 		i.Authenticated = false
 		return
+
+	} else if res.StatusCode == 0 {
+		// status-code zero in this case does not necessarily mean
+		// that the authentication was rejected; it would rather mean
+		// the icann api could make sense of the information passed to
+		// it (i.e. hearders were not read). So, display the message
+		// and try again. This func will be called again in 2 minutes.
+		i.Authenticated = false
+		log.Println("authentication failed: status-code: 0; trying again in 2 min...")
+		return
+	}
+
+	if res.StatusCode != http.StatusOK {
+		// whether api site was unavailable or authenticaton failed, it's a
+		// good idea to bail out.
+		log.Fatal("authentication failed status-code:", res.StatusCode)
 	}
 
 	var autRes autResult
 	err := json.Unmarshal(res.ResponseBody, &autRes)
 	if err != nil {
-		log.Fatal(err)
+		// don't bail out; just display the error.
+		// as we could be in a middle of a long-running download
+		fmt.Println("")
+		log.Println(err)
 		return
 	}
 
-	if res.StatusCode == http.StatusOK && autRes.Message == "Authentication Successful" {
+	if autRes.Message == "Authentication Successful" {
 		i.Authenticated = true
 		i.AccessToken.Token = autRes.AccessToken
+		i.AccessToken.DateTimeIssued = time.Now()
+		i.AccessToken.DateTimeExpires = time.Now().Add(23 * time.Hour)
+
+		i.writeAccessTokenToDisk()
 
 	} else {
-		log.Fatal("authentication failed status-code:", res.StatusCode, autRes.Message)
+		// unlikely, but still account for this (status-cocde=200 and
+		// success message missing)
+		log.Fatal("authentication failed:", autRes.Message)
 	}
 
 	return
 }
 
-// HTTPExec is wrapper to make http calls.
+// HTTPExec is wrappter to make http calls.
 func (i *IcannAPI) HTTPExec(method string, urlx string, hd http.Header, data []byte) HTTPResult {
 
 	var res HTTPResult
