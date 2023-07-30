@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"quenubes/icann/lib/util"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,7 +21,7 @@ type CzdsAPI struct {
 
 // ICzdsAPI is the interface for CzdsAPI.
 type ICzdsAPI interface {
-	DownloadZoneFile(localFilePath string, downloadLink string, wg *sync.WaitGroup) error
+	DownloadZoneFile(localFilePath string, downloadLink string, wg *sync.WaitGroup) (int, error)
 	ICANN() *IcannAPI
 	Run()
 }
@@ -35,28 +38,23 @@ lblAgain:
 		log.Fatal("unable to get download-links")
 	}
 
-	// tldUnq is an array to keep track items already downloaded
+	// tldUnq is an array to keep track items already downloaded.
+	// This list avoid any originated duplicates (i.e. net,net,com)
 	var tldUnq []interface{}
 
 	// go through the loop from the bottom so that the latest
 	// gets downloaded first.
 	for i := (len(dlinks) - 1); i >= 0; i-- {
 
-		// still check for authentication; becuase if the token
-		// expires in the middle of download, icann api will terminate
-		// the connection!
-		if !c.icann.Authenticated {
-			log.Println("waiting for authentication...")
-			for {
-				if c.icann.Authenticated {
-					break
-				}
-				time.Sleep(time.Second)
-			}
-		}
+		// still check for authentication between downloads
+		c.waitUntilAutenticated()
 
 		link := dlinks[i]
 		localFilePath := c.getDownloadLocalFilePath(link)
+
+		if c.todayZoneFileExistsOnDisk(localFilePath) {
+			continue
+		}
 
 		// Always get the latest (one download for each tld)
 		v := strings.Split(link, "/")
@@ -67,22 +65,180 @@ lblAgain:
 		if alreadyDowloaded {
 			continue
 		}
+
 		tldUnq = append(tldUnq, oneTLD)
 
 		// wait for each download to finish
 		// (one file at a time per ip addr; as it's not a good idea
 		// to download files simultaneousely from the same ip addr!).
-		err := c.DownloadZoneFile(localFilePath, link, nil)
+		statusCode, err := c.DownloadZoneFile(localFilePath, link, nil)
 		if err != nil {
-			fmt.Println("c.DownloadZoneFile()=>", oneTLD, err)
+			fmt.Println(" c.DownloadZoneFile()=>", oneTLD, err)
+			// remove from the downloaded-list (success list)
+			tldUnq = util.RemoveFromArray(tldUnq, oneTLD)
+
+			c.downloadZoneFilePostErr(localFilePath, link, oneTLD, statusCode, err)
+
+			// // it's a good idea to halt the download a bit
 			time.Sleep(time.Minute)
 		}
-
 	}
+
+	// download loop is done. Now see if there are any failures
+	c.downloadFailedTLDs()
+
+	c.cleanup()
 
 	c.keepIdlUntilNextInternval()
 
 	goto lblAgain
+}
+
+// todayZoneFileExistsOnDisk determins if a zone file
+// for the current session is present on disk; so that
+// if this app is turned off/on, and a successfully downloaded
+// zone file exists; it will not be re-downloaded.
+func (c *CzdsAPI) todayZoneFileExistsOnDisk(fp string) bool {
+
+	fileName := filepath.Base(fp)
+
+	// com => ~ 5 GB
+	// net => ~ 500 MB
+	files, err := os.ReadDir(c.icann.AppDataDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for i := 0; i < len(files); i++ {
+		fn := files[i].Name()
+		if fileName == fn {
+			fi, _ := files[i].Info()
+			if strings.Contains(fileName, "-com.zone.gz") {
+				gb := fi.Size() / 1024 / 1024 / 1024
+				if gb > 4 {
+					return true
+				}
+			}
+			if strings.Contains(fileName, "-net.zone.gz") {
+				mb := fi.Size() / 1024 / 1024
+				if mb > 490 {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+func (c *CzdsAPI) cleanup() {
+
+	// remove lingering partially downloaded files
+	files, err := os.ReadDir(c.icann.AppDataDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for i := 0; i < len(files); i++ {
+		fn := files[i].Name()
+
+		if strings.HasSuffix(fn, ".part") {
+			fp := fmt.Sprintf("%s/%s", c.icann.AppDataDir, fn)
+			os.Remove(fp)
+		}
+	}
+}
+func (c *CzdsAPI) downloadFailedTLDs() {
+	if len(c.icann.failedDownloadQueue) == 0 {
+		return
+	}
+
+	c.removeMaxedoutItemsFromFailedDownloadList()
+
+	for i := 0; i < len(c.icann.failedDownloadQueue); i++ {
+		statusCode, err := c.DownloadZoneFile(c.icann.failedDownloadQueue[i].LocalFilePath,
+			c.icann.failedDownloadQueue[i].DownloadURL, nil)
+
+		if err != nil {
+			fmt.Println(" c.DownloadZoneFile()=>", c.icann.failedDownloadQueue[i].TLD, err)
+			c.downloadZoneFilePostErr(c.icann.failedDownloadQueue[i].LocalFilePath,
+				c.icann.failedDownloadQueue[i].DownloadURL, c.icann.failedDownloadQueue[i].TLD, statusCode, err)
+
+			time.Sleep(time.Minute)
+		}
+
+		c.removeMaxedoutItemsFromFailedDownloadList()
+		if len(c.icann.failedDownloadQueue) == 0 {
+			break
+		}
+	}
+}
+func (c *CzdsAPI) removeItemFromItemArry(s []failedDownloadItem, i int) []failedDownloadItem {
+	s[len(s)-1], s[i] = s[i], s[len(s)-1]
+	return s[:len(s)-1]
+}
+
+func (c *CzdsAPI) removeMaxedoutItemsFromFailedDownloadList() {
+lblAgain:
+	for i := 0; i < len(c.icann.failedDownloadQueue); i++ {
+
+		// if error is: "...connection reset by peer", it won't do any good to re-try
+		// successively; hopfuly download for the next session will be successfull.
+		if c.icann.failedDownloadQueue[i].AttempCount > 2 ||
+			strings.Contains(c.icann.failedDownloadQueue[i].ErrTxt, "connection reset by peer") {
+
+			c.icann.failedDownloadQueue = c.removeItemFromItemArry(c.icann.failedDownloadQueue, i)
+
+			if len(c.icann.failedDownloadQueue) == 0 {
+				return
+			}
+
+			goto lblAgain
+		}
+
+	}
+}
+func (c *CzdsAPI) downloadZoneFilePostErr(localFilePath string, link string, oneTLD string, statusCode int, err error) {
+	if err == nil {
+		return
+	}
+
+	for i := 0; i < len(c.icann.failedDownloadQueue); i++ {
+		if c.icann.failedDownloadQueue[i].TLD == oneTLD {
+			c.icann.failedDownloadQueue[i].AttempCount = c.icann.failedDownloadQueue[i].AttempCount + 1
+			return
+		}
+	}
+
+	var item = failedDownloadItem{
+		TLD:             oneTLD,
+		DateTimeAborted: time.Now(),
+		LocalFilePath:   localFilePath,
+		DownloadURL:     link,
+		AttempCount:     c.getFailedAttempCount(oneTLD) + 1,
+		StatusCode:      statusCode,
+		ErrTxt:          err.Error()}
+
+	c.icann.failedDownloadQueue = append(c.icann.failedDownloadQueue, item)
+}
+
+// getFailedAttempCount returns the attemp-count of an item
+// in the failed-attmpe queue.
+func (c *CzdsAPI) getFailedAttempCount(tld string) uint8 {
+
+	var attpCnt uint8
+	lenx := len(c.icann.failedDownloadQueue)
+
+	if lenx == 0 {
+		return attpCnt
+	}
+
+	for i := 0; i < lenx; i++ {
+		if c.icann.failedDownloadQueue[i].TLD == tld {
+			return c.icann.failedDownloadQueue[i].AttempCount
+		}
+	}
+
+	return attpCnt
 }
 
 // ICANN exposes the IcannAPI to outside callers (public).

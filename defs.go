@@ -33,7 +33,21 @@ type configData struct {
 	HoursToWaitBetweenDownloads int
 }
 
-// IcannAPI defines the structure of hte IIcannAPI interface.
+// failedDownloadItem hold info on a filed download so that
+// the download can be tried again; after other files
+// are downloaded, since there is one download in-progress
+// at a time.
+type failedDownloadItem struct {
+	TLD             string // com, net,...
+	DateTimeAborted time.Time
+	LocalFilePath   string
+	DownloadURL     string
+	AttempCount     uint8 // 1 thru 3
+	StatusCode      int
+	ErrTxt          string
+}
+
+// IcannAPI defines the structure of the IIcannAPI interface.
 type IcannAPI struct {
 
 	// AppDataDir is the directory (on the volume) that zone files will be downloaded to.
@@ -63,6 +77,8 @@ type IcannAPI struct {
 	isDirty bool
 
 	HoursToWaitBetweenDownloads int
+
+	failedDownloadQueue []failedDownloadItem
 }
 
 type JWT struct {

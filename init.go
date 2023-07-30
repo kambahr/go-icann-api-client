@@ -29,17 +29,19 @@ func NewIcannAPIClient() *IcannClient {
 	var authToken JWT
 	var authenticated bool
 
+	var fdArry []failedDownloadItem
+
 	// Initialize the IcannAPI interface
 	icn.IcannAPI = &IcannAPI{cnf.ZoneFileDir, cnf.UserAgent,
 		cnf.IcannAccountUserName, cnf.IcannAccountPassword, cnf.ApprovedTLD,
-		authenticated, authToken, false, cnf.HoursToWaitBetweenDownloads}
+		authenticated, authToken, false, cnf.HoursToWaitBetweenDownloads, fdArry}
 
 	// CzdsAPI expands the IcannAPI interface with more functionaliy; so its IcannAPI instance
 	// must be initialized accordingly.
 	icn.CzdsAPI = &CzdsAPI{
 		&IcannAPI{cnf.ZoneFileDir, cnf.UserAgent,
 			cnf.IcannAccountUserName, cnf.IcannAccountPassword, cnf.ApprovedTLD,
-			authenticated, authToken, false, cnf.HoursToWaitBetweenDownloads},
+			authenticated, authToken, false, cnf.HoursToWaitBetweenDownloads, fdArry},
 	}
 
 	// Authenticate on the first run; after that --

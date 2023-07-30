@@ -259,6 +259,11 @@ func getNeutralDate(t time.Time) string {
 	return fmt.Sprintf("%d%02d%02d", time.Now().Year(), time.Now().Month(), time.Now().Day())
 }
 
+func RemoveItemFromIntArry(s []interface{}, i int) []interface{} {
+	s[len(s)-1], s[i] = s[i], s[len(s)-1]
+	return s[:len(s)-1]
+}
+
 // FileOrDirExists checks to see if a file or dir exist.
 // Note that os.Stat(path) works for any path (file or
 // directory).

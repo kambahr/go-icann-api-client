@@ -5,16 +5,16 @@ Runs all needed to download zone-files periodically -- via one call.
 
 ## Automation Features
 
-### Renews the OAuth 2.0 JWT every 24 hours
+### Renews the OAuth 2.0 JWT
 A new JWT token can be issued (per IP Addr) every 2 minutes; and each token is valid for 24 hours.
-A separate instance keeps track of the JWT token issuance to ensure that no API request takes place with an 
+A separate instance keeps track of the JWT token to ensure that no API request takes place with an 
 expired token.
 
 ### Downloads approved TLDs every 48 hours
 According to ICANN terms, each tld must be downloaded no more than once in 24 hours. Considering the large amount of information to process + the time it takes to prepare the results for a purpose (i.e. indexing), 48 hours is deemed to 
 be the minimum time between downloads. 
 
-## Security
+## Config
 ### Required args
 The following variables must be set via the environment variables:
 

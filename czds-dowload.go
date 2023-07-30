@@ -36,7 +36,7 @@ func (wm *TeeWriter) Write(p []byte) (int, error) {
 }
 
 // DownloadZoneFile downloads a zone file from an assigned link.
-func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg *sync.WaitGroup) error {
+func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg *sync.WaitGroup) (int, error) {
 
 	if wg != nil {
 		defer wg.Done()
@@ -53,7 +53,7 @@ func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg
 	if FileOrDirExists(localFilePath) {
 		errTxt := fmt.Sprintf("%s already exist", localFilePath)
 		fmt.Println(errTxt)
-		return errors.New(errTxt)
+		return -1, errors.New(errTxt)
 	}
 
 	headers := c.icann.GetCommonHeaders()
@@ -93,16 +93,16 @@ func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg
 
 	ioOutput, err := os.Create(tempFilePath)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
-	client := &http.Client{Timeout: 5 * time.Hour}
+	client := &http.Client{}
 	req, _ := http.NewRequest(http.MethodGet, downloadLink, nil)
 	req.Header = headers
 	resp, err := client.Do(req)
 	if err != nil {
 		ioOutput.Close()
-		return err
+		return -1, err
 	}
 
 	defer resp.Body.Close()
@@ -113,17 +113,17 @@ func (c *CzdsAPI) DownloadZoneFile(localFilePath string, downloadLink string, wg
 
 	if _, err = io.Copy(ioOutput, io.TeeReader(resp.Body, teeWriter)); err != nil {
 		ioOutput.Close()
-		return err
+		return resp.StatusCode, err
 	}
 
 	// Close the file, before renaming it.
 	ioOutput.Close()
 
 	if err = os.Rename(tempFilePath, localFilePath); err != nil {
-		return err
+		return resp.StatusCode, err
 	}
 
 	fmt.Println("")
 
-	return nil
+	return -1, nil
 }

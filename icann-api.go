@@ -113,6 +113,7 @@ func (i *IcannAPI) getAccessTokenFromDisk() {
 	}
 	b, _ := os.ReadFile(tokenFilePath)
 	b, _ = hex.DecodeString(string(b))
+
 	json.Unmarshal(b, &i.AccessToken)
 }
 
@@ -123,8 +124,14 @@ func (i *IcannAPI) Authenticate() {
 	actExp := i.accessTokenExpired()
 
 	if !actExp {
-		// token still good
-		return
+		// token still good? test the token
+		// hd := i.GetCommonHeaders()
+		// hd.Add("Authorization", fmt.Sprintf("Bearer %s", i.AccessToken.Token))
+		// res := i.HTTPExec(GET, czdsAPIDownloadLinksURL, hd, nil)
+		// if res.StatusCode == 200 {
+		i.Authenticated = true
+		// 	return
+		// }
 	}
 
 	i.waitForAuthAttemptTimeout()
