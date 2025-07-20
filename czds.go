@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"quenubes/icann/lib/util"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,7 +74,7 @@ lblAgain:
 		if err != nil {
 			fmt.Println(" c.DownloadZoneFile()=>", oneTLD, err)
 			// remove from the downloaded-list (success list)
-			tldUnq = util.RemoveFromArray(tldUnq, oneTLD)
+			tldUnq = RemoveFromArray(tldUnq, oneTLD)
 
 			c.downloadZoneFilePostErr(localFilePath, link, oneTLD, statusCode, err)
 
