@@ -264,6 +264,17 @@ func RemoveItemFromIntArry(s []interface{}, i int) []interface{} {
 	return s[:len(s)-1]
 }
 
+func RemoveFromArray(a []any, e any) []any {
+	for i := 0; i < len(a); i++ {
+		if a[i] == e {
+			a[len(a)-1], a[i] = a[i], a[len(a)-1]
+			a = a[:len(a)-1]
+			break
+		}
+	}
+	return a
+}
+
 // FileOrDirExists checks to see if a file or dir exist.
 // Note that os.Stat(path) works for any path (file or
 // directory).
