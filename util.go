@@ -264,7 +264,7 @@ func RemoveItemFromIntArry(s []interface{}, i int) []interface{} {
 	return s[:len(s)-1]
 }
 
-func RemoveFromArray(a []any, e any) []any {
+func RemoveFromArray(a []interface{}, e any) []interface{} {
 	for i := 0; i < len(a); i++ {
 		if a[i] == e {
 			a[len(a)-1], a[i] = a[i], a[len(a)-1]
